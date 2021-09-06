@@ -2,6 +2,7 @@
 
 void Delays(int time);
 
+
 unsigned char debounce(void);
 
 int main(void)
@@ -15,20 +16,25 @@ int main(void)
 	GPIOC -> CRH &= 0xFF0FFFFF; // RESET PIN 13 TO 0
 	GPIOC -> CRH |= 0x00300000; // PIN C13 | OUTPUT MODE | PUSH PULL | MAX SPEED -> 50Hz
 
-	unsigned char ctbutton = 0;
-	unsigned char lbutton = 0;
+	unsigned char CurrentState = 0;
+	unsigned char LastState = 0;
+	
+	
 	
 	while(1)
 	{
-		ctbutton = debounce();
+		CurrentState = debounce();
 		
-		if((ctbutton == 1) & (lbutton == 0))
+		if((CurrentState == 1) & (LastState == 0))
 		{
-			GPIOC -> ODR = 0x2000;
+			GPIOC -> ODR ^= 0x2000;
+			Delays(10);
 		}
-		
-		lbutton = ctbutton;
+						
+		LastState = CurrentState;
 	}
+	
+	
 	
 }
 
@@ -41,17 +47,17 @@ void Delays(int time) // RANDOM DELAY FUNCTION
 	{
 	 for(t = 0; t < 100000; t++)
 		{
-			__NOP();
+			__NOP(); // PAUSE CPU CYCLE
 		}
 	}
 }
 
-unsigned char debounce()
+unsigned char debounce() // TO PREVENT MECHANICAL ERROR FROM BUTTON
 {
 	if(GPIOA -> IDR & 0x00000001)
 	{
 		Delays(10);
-		
+			
 		if(GPIOA -> IDR & 0x00000001)
 		{
 			return 1;
