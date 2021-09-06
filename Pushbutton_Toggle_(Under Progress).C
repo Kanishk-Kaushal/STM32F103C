@@ -24,7 +24,7 @@ int main(void)
 		
 		if((ctbutton == 1) & (lbutton == 0))
 		{
-			GPIOA -> ODR = 0x2000;
+			GPIOC -> ODR = 0x2000;
 		}
 		
 		lbutton = ctbutton;
