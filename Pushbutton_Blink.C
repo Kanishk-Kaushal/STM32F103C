@@ -21,13 +21,13 @@ int main(void)
 		if(GPIOA -> IDR & 0x00000001) // IDR -> INPUT DATA REGISTER | CHECKING STATUS OF A0
 		{
 			Delays(10);
-			GPIOC -> ODR ^= 0x2000; // CHANGE THE PIN STATE
+			GPIOC -> ODR |= 0x2000; // CHANGE THE PIN STATE -> HIGH
 			Delays(10);
 		}
 		
 		else
 		{
-			GPIOC->ODR = 0x2000; // SET PC13 TO HIGH
+			GPIOC -> ODR &= ~0x2000; // SET PC13 TO LOW
 		}
 	}
 	
