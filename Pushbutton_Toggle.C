@@ -41,7 +41,7 @@ void Delays(int time) // RANDOM DELAY FUNCTION
 	{
 	 for(t = 0; t < 100000; t++)
 		{
-			
+			__NOP();
 		}
 	}
 }
