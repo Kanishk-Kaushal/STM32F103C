@@ -1,0 +1,440 @@
+#include "stm32f10x.h"
+
+#include "math.h"
+#include "stdlib.h"
+
+volatile int myTicks = 0;
+volatile uint16_t samples[2] ={ 0, 0 };
+int mapped(float k, float l, float h, float L, float H);
+void Ports(void);
+void PWM_init(void);
+void PWM_init(void);
+unsigned int ADC_read(int k);
+void ADC_Init(void);
+
+int mapped(float k, float l, float h, float L, float H)
+{
+	return ((k - l) / (h - l)) * (H - L) + L;
+}
+
+
+int x;
+int y;
+
+void Ports()
+{
+	RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;   // ENABLE CLOCK | PORT A
+	RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;   // ENABLE CLOCK | PORT B
+	RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;   // ENABLE ALTERNATE FUNCTION
+
+	// PORT A | PIN 1 | INPUT MODE | ANALOG INPUT
+	GPIOA->CRL &= ~(GPIO_CRL_MODE1_0 | GPIO_CRL_MODE1_1);   
+	GPIOA->CRL &= ~(GPIO_CRL_CNF1_0 | GPIO_CRL_CNF1_1);   
+
+	// PORT A | PIN 2 | INPUT MODE | ANALOG INPUT
+	GPIOA->CRL &= ~(GPIO_CRL_MODE2_0 | GPIO_CRL_MODE2_1);   
+	GPIOA->CRL &= ~(GPIO_CRL_CNF2_0 | GPIO_CRL_CNF2_1);   
+
+	// PORT A | PIN 4 | OUTPUT MODE | MAX SPEED = 50MHz | PUSH-PULL
+	GPIOA->CRL |= GPIO_CRL_MODE4;   
+	GPIOA->CRL &= ~(GPIO_CRL_CNF4);   
+
+	// PORT A | PIN 5 | OUTPUT MODE | MAX SPEED = 50MHz | PUSH-PULL
+	GPIOA->CRL |= GPIO_CRL_MODE5;   
+	GPIOA->CRL &= ~(GPIO_CRL_CNF5);   
+
+	
+	// PORT B | PIN 6 | OUTPUT MODE | MAX SPEED = 50MHz | ALTERNATE FUNCTION
+	GPIOB->CRL |= GPIO_CRL_MODE6;   
+	GPIOB->CRL |= GPIO_CRL_CNF6_1;
+	GPIOB->CRL &= ~(GPIO_CRL_CNF6_0);
+
+	// PORT B | PIN 7 | OUTPUT MODE | MAX SPEED = 50MHz | ALTERNATE FUNCTION
+	GPIOB->CRL |= GPIO_CRL_MODE7;  
+	GPIOB->CRL |= GPIO_CRL_CNF7_1;
+	GPIOB->CRL &= ~(GPIO_CRL_CNF7_0);
+}
+
+void PWM_init()
+{
+	
+	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;   // TIMER 4 ENABLE
+	TIM4->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E; // CHANNEL 1 & CHANNEL 2 -> OUTPUT
+	TIM4->CR1 |= TIM_CR1_ARPE;   // ENABLE ARPE | ARPE -> AUTO PRE-LOAD ENABLE
+
+	TIM4->CCMR1 |= TIM_CCMR1_OC1PE;   // CHANNEL 1 PRELOAD ENABLE
+	TIM4->CCMR1 |= TIM_CCMR1_OC2PE;   // CHANNEL 2 PRELOAD ENABLE
+	
+	// OUPUT COMPARE 1 MODE SET AS PWM MODE 1
+	TIM4->CCMR1 |= (TIM_CCMR1_OC1M_2) | (TIM_CCMR1_OC1M_1);
+	TIM4->CCMR1 &= ~(TIM_CCMR1_OC1M_0);
+	
+	// OUPUT COMPARE 2 MODE SET AS PWM MODE 1
+	TIM4->CCMR1 |= (TIM_CCMR1_OC2M_2) | (TIM_CCMR1_OC2M_1);
+	TIM4->CCMR1 &= ~(TIM_CCMR1_OC2M_0);
+
+	TIM4->PSC = 1; // PRESCALAR
+	TIM4->ARR = 4095;  // AUTO-RELOAD VALUE -> (2^16 - 1)  
+	TIM4->CCR1 = 0; // CAPTURE/COMPARE REGISTERS
+	TIM4->CCR2 = 0;
+
+	TIM4->EGR |= TIM_EGR_UG;   // BEFORE STARTING TIMER -> INITIALIZE ALL REGISTERS
+	TIM4->CR1 |= TIM_CR1_CEN;   // COUNTER ENABLE
+	
+}
+
+unsigned int ADC_read(int k)
+{
+	int Joyval = 0;
+	
+	Joyval = samples[k];
+	
+	if(k == 0)
+	{
+		Joyval = mapped(Joyval, 0, 4095, -4095, 4095);
+	}
+		
+
+	else
+	{
+		Joyval = mapped(Joyval, 0, 4095, 4095, -4095);
+		
+		//  BUFFERS FOR JOYSTICK EDGES		
+		if (Joyval < -3950)
+		{
+			Joyval = -4095;
+		}
+		
+		if (Joyval > 3950)
+		{
+			Joyval = 4095;
+		}
+			
+	}
+	
+	// BUFFERS FOR JOYSTICVK CENTRES
+	//if (abs(Joyval) < 200)
+	//	Joyval = 0;
+	//
+	return Joyval;
+}
+
+void ADC_Init()
+{
+	GPIOA->BSRR |= 1 << 4 | 1 << 5;
+	RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6;   //  PRESCLAR -> 72MHz/6
+	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;   // ADC1 CLOCK ENABLE
+	RCC->AHBENR |= RCC_AHBENR_DMA1EN;   // DMA1 CLOCK ENABLE
+
+	// SAMPLING RATES FOR CHANNEL 1 & CHANNEL 2
+	ADC1->SMPR2 |= ADC_SMPR2_SMP1_2 | ADC_SMPR2_SMP1_1 | ADC_SMPR2_SMP1_0;   
+	ADC1->SMPR2 |= ADC_SMPR2_SMP2_2 | ADC_SMPR2_SMP2_1 | ADC_SMPR2_SMP2_0; 
+  
+	// SET CHANNEL 1 & 2 | SET SEQUENCE
+	ADC1->SQR1 |= 1 << 20;   
+	ADC1->SQR3 |= ADC_SQR3_SQ1_0;
+	ADC1->SQR3 |= ADC_SQR3_SQ2_1;
+	
+	ADC1->CR1 |= ADC_CR1_SCAN;   // SCAN MODE ENABLE
+	ADC1->CR2 |= ADC_CR2_DMA;   // DMA MODE ENABLE
+
+	
+	// DMA CONFIGURATIONS
+	
+	DMA1_Channel1->CPAR = (uint32_t) (&(ADC1->DR));   
+	DMA1_Channel1->CMAR = (uint32_t) samples;   
+	DMA1_Channel1->CNDTR = 2;   
+
+	DMA1_Channel1->CCR |= DMA_CCR1_CIRC;   
+	DMA1_Channel1->CCR |= DMA_CCR1_MINC;   
+	DMA1_Channel1->CCR |= DMA_CCR1_PSIZE_0;   
+	DMA1_Channel1->CCR |= DMA_CCR1_MSIZE_0;   
+
+	DMA1_Channel1->CCR |= DMA_CCR1_EN;   // DMA1 ENABLE
+	
+	ADC1->CR2 |= ADC_CR2_ADON;   // TURN ADC ON
+	ADC1->CR2 |= ADC_CR2_CONT;   // ADC CONTINUOS MODE
+		
+	ADC1->CR2 |= ADC_CR2_ADON; // TURN ADC ON AGAIN | GIVEN IN REF MANUAL
+	ADC1->CR2 |= ADC_CR2_CAL; // RUN CALIBRATION
+}
+
+
+
+
+int main(void)
+{
+	
+	Ports();
+	PWM_init();
+	ADC_Init();
+	
+	
+	
+	while (1)
+	{
+			// MAPPED X AXIS VALUE
+		x = ADC_read(0);   
+		
+		// MAPPED Y AXIS VALUE
+		y= ADC_read(1);   
+
+		
+			
+	
+		
+		
+		
+		//x = x/4;
+		//y = y/4;
+		
+		int X_val = mapped(y, 0, 4095, -4095, 4095);
+		int Y_val = mapped(x, 0, 4095, -4095, 4095);
+		
+		//int X_val = y-512;
+		//int Y_val = x-512;
+		
+		//X_val = X_val/4;
+		//Y_val = Y_val/4;
+		
+		//	int X_val = y;
+		//	int Y_val = x;
+		
+		
+		
+		
+		
+		
+		float theta = atan2f(Y_val,X_val);
+		
+		int remap = abs(abs(X_val)-abs(Y_val));
+		
+		
+		
+		if(abs(X_val)<60&&abs(Y_val)<60)                    //Buffer around centre
+		{
+			TIM4->CCR1 = 0;
+			TIM4->CCR2 = 0;
+			////PORTB&=~(1<<PINB0);
+			//PORTB&=~(1<<PINB1);
+			//_delay_us(10);
+		}
+		
+		else if(theta>0.70f&&theta<0.87f)		                //diagonal 1
+		{
+			
+			TIM4->CCR2 = 0;
+			//PORTB&=~(1<<PINB1);
+			TIM4->CCR1 = abs(X_val);
+			////PORTB|=(1<<PINB0);
+			//_delay_us(5);
+			
+		}
+		
+		else if(theta>2.23f&&theta<2.47f)                   //diagonal 2
+		{
+			TIM4->CCR1 = 0;
+			////PORTB&=~(1<<PINB0);
+			TIM4->CCR2 = abs(X_val);
+			////PORTB|=(1<<PINB1);
+			//_delay_us(5);
+		}
+		
+		else if(theta>-2.40f&&theta<-2.30f)                 //diagonal 3
+		{
+			TIM4->CCR2 = 0;
+			////PORTB&=~(1<<PINB0);
+			TIM4->CCR1 = abs(X_val);
+			////PORTB|=(1<<PINB0);
+			//_delay_us(5);
+		}
+		
+		else if(theta>-0.90f&&theta<-0.60f)                 //diagonal 4
+		{
+			TIM4->CCR1 = 0;
+			//PORTB&=~(1<<PINB1);
+			TIM4->CCR2 = abs(X_val);
+			////PORTB|=(1<<PINB1);
+		}
+		
+		else if(theta>0.0f&&theta<0.79f)                 //Octet 1
+		{
+			
+			//_delay_us(30);
+			
+			//analogWrite(LeftF,X_val);
+			TIM4->CCR1 = X_val;
+		//	PORTB |= (1<<PINB0);
+			
+			//analogWrite(RightB,remap);
+			TIM4->CCR2 = remap;
+			//PORTB&=~(1<<PINB1);
+			
+			//_delay_us(5);
+			
+		}
+
+
+		else if(theta>0.79f&&theta<1.57f)                 //Octet 2
+		{
+			
+			//_delay_us(30);
+			
+			//analogWrite(LeftF,Y_val);
+			TIM4->CCR1 = Y_val;
+			//PORTB|=(1<<PINB0);
+			
+			//analogWrite(RightF,remap);
+			if(theta>0.70f&&theta<0.87f)
+			TIM4->CCR2 = 0;
+			else
+			TIM4->CCR2 = remap;
+			//PORTB|=(1<<PINB1);
+			
+			//_delay_us(5);
+
+			
+			
+		}
+
+		else if(theta>1.57f&&theta<2.36f)                   //Octet 3
+		{
+			
+			//_delay_us(30);
+			
+			//analogWrite(LeftF,remap);
+			
+			if(theta>2.23f&&theta<2.47f)
+			TIM4->CCR1 = 0;
+			else
+			TIM4->CCR1 = remap;
+			
+			//PORTB|=(1<<PINB0);
+			
+			//analogWrite(RightF,Y_val);
+			TIM4->CCR2 = Y_val;
+			//PORTB|=(1<<PINB1);
+			
+			//_delay_us(5);
+			
+			
+		}
+
+		else if(theta>2.36f&&theta<3.14f)                   //Octet 4
+		{
+			//_delay_us(30);
+			
+			//analogWrite(LeftB,remap);
+			
+			if(theta>=2.23f&&theta<=2.47f)
+			TIM4->CCR1 = 0;
+			else
+			TIM4->CCR1 = remap;
+			
+			////PORTB&=~(1<<PINB0);
+			
+			//analogWrite(RightF,abs(X_val));
+			TIM4->CCR2 = abs(X_val);
+			//PORTB|=(1<<PINB1);
+			
+
+			//_delay_us(5);
+			
+			
+		}
+
+		else if(theta>-3.14f&&theta<=-2.36f)                //Octet 5
+		{
+			//_delay_us(30);
+			
+			//analogWrite(LeftB,abs(X_val));
+			TIM4->CCR1 = abs(X_val);
+			////PORTB&=~(1<<PINB0);
+			
+			//analogWrite(RightF,remap);
+			
+			if(theta>-2.40f&&theta<-2.30f)
+			TIM4->CCR2 = 0;
+			else
+			TIM4->CCR2 = remap;
+			//PORTB|=(1<<PINB1);
+			
+			
+			//_delay_us(5);
+			
+			
+		}
+
+		else if(theta>-2.36f&&theta<-1.57f)                   //Octet 6
+		{
+			
+			//	_delay_us(30);
+			
+			//analogWrite(LeftB,abs(Y_val));
+			TIM4->CCR1 = abs(Y_val);
+			////PORTB&=~(1<<PINB0);
+			
+			
+			//analogWrite(RightB,remap);
+			TIM4->CCR2 = remap;
+			//PORTB&=~(1<<PINB1);
+
+			
+			
+			//_delay_us(5);
+			
+			
+		}
+
+		else if(theta>-1.57f&&theta<-0.79f)                     //Octet 7
+		{
+			
+			//_delay_us(30);
+			
+			//analogWrite(LeftB,remap);
+			
+			//if(remap<40)
+			//TIM4->CCR1 = 0;
+			//else
+			TIM4->CCR1 = remap;
+			
+			
+			////PORTB&=~(1<<PINB0);
+			
+			//analogWrite(RightB,abs(Y_val));
+			TIM4->CCR2 = abs(Y_val);
+			//PORTB&=~(1<<PINB1);
+
+			//_delay_us(5);
+			
+		}
+
+		else if(theta>-0.79f&&theta<0.0f)                       //Octet 8
+		{
+			
+			//responsible for led off at diagonal
+			//_delay_us(30);
+			
+			//analogWrite(LeftF,remap);
+			
+			if(theta>-0.90f&&theta<-0.60f)
+			TIM4->CCR1 = 0;
+			else
+			TIM4->CCR1 = remap;
+			
+			
+			//PORTB|=(1<<PINB0);
+			
+			//analogWrite(RightB,X_val);
+			TIM4->CCR2 = X_val;
+			//PORTB&=~(1<<PINB1);
+
+			//_delay_us(5);
+			
+				
+		}
+		
+		
+	}
+
+}
