@@ -1,150 +1,128 @@
 #include "stm32f10x.h"
-#include "stm32f10x_rcc.h"
-#include "stm32f10x_gpio.h"
-#include "stm32f10x_spi.h"
-#include "delay.h"
-#include "uart.h"
-#include "string.h"
-#include "stdio.h"
+volatile static myTicks=0;
 
-#define SPIx_RCC      RCC_APB1Periph_SPI2
-#define SPIx          SPI2
-#define SPI_GPIO_RCC  RCC_APB2Periph_GPIOB
-#define SPI_GPIO      GPIOB
-#define SPI_PIN_MOSI  GPIO_Pin_15
-#define SPI_PIN_MISO  GPIO_Pin_14
-#define SPI_PIN_SCK   GPIO_Pin_13
-#define SPI_PIN_SS    GPIO_Pin_12
+//prototype start
+void spi(void);
+void ports(void);
+void SysTick_Handler(void);
+void delayMs(uint16_t ms);
+void send(char tx_char);
+void CS_Disable (void);
+void CS_Enable (void);
+void blink (void);
+// prototype end
 
-
-void NVIC_Configuration(void);
-void SPIx_Init(void);
-void SPIx_EnableSlave(void);
-void SPIx_DisableSlave(void);
- 
-uint8_t receivedByte;
-uint8_t buff[]= "kan\r\n\0";
-uint8_t TxIdx = 0;
-uint8_t RxCnt = 0;
-
-void SPI2_IRQHandler(void)
+int main()
 {
-  if (SPI_I2S_GetITStatus(SPIx, SPI_I2S_IT_TXE) != RESET)
-  {
-		 TxIdx++;
-  }
+  SysTick_Config(SystemCoreClock / 1000);
+	spi();
+	ports();
 	
-	 if (SPI_I2S_GetITStatus(SPIx, SPI_I2S_IT_RXNE) != RESET)
-	 {
-		 RxCnt++;
-	 }
+  
+
+	while(1)
+	{
+		
+
+		if(GPIOA -> IDR & 0x00000001) // IDR -> INPUT DATA REGISTER | CHECKING STATUS OF A0
+		{ 
+			CS_Enable();
+			send('A');
+			CS_Disable();
+			delayMs(10);
+		}
+		else
+		{
+			CS_Enable();
+			send('P');
+			CS_Disable();
+			delayMs(10);
+		}
+
+   
+	}
+
+
+}
+
+void blink ()
+{
+	int t=0;
+	while (t<2)
+	{
+		GPIOC -> ODR |= 0x2000;
+		delayMs(100);
+		GPIOC ->  ODR &= ~0x2000;
+		delayMs(100);
+		t++;
+	}
+}
+
+void ports(void)
+{
+	RCC->APB2ENR |=  RCC_APB2ENR_IOPAEN;  // Enable GPIOA clock
+	RCC->APB2ENR |=  RCC_APB2ENR_IOPCEN;
+	GPIOC -> CRH &= 0xFF0FFFFF; // RESET PIN 13
+	GPIOC -> CRH |= 0x00300000; // PIN 13 | OUTPUT MODE | MAX SPEED = 50Hz
 	
-}
-
-int main(void)
-{
-	  RCC->APB2ENR |=  (1<<2);  // Enable GPIOA clock
-		GPIOA -> CRL &= 0xFFFFFFF0; // RESET PORT A TO 0
-	  GPIOA -> CRL |= 0x8; // INPUT MODE | PUSH-PULL| PIN A0
+	//spi ports
+	GPIOA->CRL |=(1<<21);
+	GPIOA->CRL &=~(1<<20);
+	GPIOA->CRL |=(1<<22) | (1<<23);
 	
-    DelayInit();
+	GPIOA->CRL |=(1<<29);
+	GPIOA->CRL &=~(1<<28);
+	GPIOA->CRL |=(1<<30) | (1U<<31);
+	
+	
+	
+	
+	
+	GPIOA -> CRL &= 0xFFFFFFF0; // RESET PORT A TO 0
+	GPIOA -> CRL |= 0x8; // INPUT MODE | PUSH-PULL| PIN A0
 
-	  NVIC_Configuration();
-    
-		SPIx_Init();
-		
-		volatile int i = 0 ;
-		
-    while (1)
-    {
-			if(GPIOA -> IDR & 0x00000001) // IDR -> INPUT DATA REGISTER | CHECKING STATUS OF A0
-			{
-        // Enable slave
-        SPIx_EnableSlave();
-				
-				for(i = 0; i < 4;i++)
-				{			
-					sprintf((char*)buff,"Counter %d\n",i);
-					char *ptr = (char*)buff;
-					while(*ptr)
-					{
-						SPI_I2S_SendData(SPIx,*(ptr++));			
-						DelayMs(10);
-					}					
-					DelayMs(1000);
-				}
-        SPIx_DisableSlave();
-        DelayMs(1000);
-			}
-    }
 }
-
-void NVIC_Configuration()
+void spi()
 {
-  NVIC_InitTypeDef NVIC_InitStructure;
+	RCC->APB2ENR |= (1<<12);  // Enable SPI1 CLock
+//*******Setup SPI peripherals*****
+	SPI1->CR1 |= (1<<15) | (1<<14) | (1<<9);
+SPI1->CR1 |= 0x4; // Master Mode
+SPI1->CR1 |= 0x31; // fclk / 265
+SPI1->CR2 |= 0x4;
+SPI1->CR1 |= 0x40; // Enabling SPI SPI periph
 
-  /* 1 bit for pre-emption priority, 3 bits for subpriority */
-  NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
-  /* Configure and enable SPI_MASTER interrupt -------------------------------*/
-  NVIC_InitStructure.NVIC_IRQChannel = SPI2_IRQn;
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
-  NVIC_InitStructure.NVIC_IRQChannelSubPriority = 1;
-  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-  NVIC_Init(&NVIC_InitStructure);
 
-}
 
-void SPIx_Init()
+ }
+
+void send(char tx_char)
 {
-    // Initialization struct
-    SPI_InitTypeDef SPI_InitStruct;
-    GPIO_InitTypeDef GPIO_InitStruct;
+  
+        {
+		SPI1->DR = tx_char;
+		while(SPI1->SR & 0x80);
 
-    // Step 1: Initialize SPI
-    RCC_APB1PeriphClockCmd(SPIx_RCC, ENABLE);
-    SPI_InitStruct.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_64;
-    SPI_InitStruct.SPI_CPHA = SPI_CPHA_1Edge;
-    SPI_InitStruct.SPI_CPOL = SPI_CPOL_Low;
-    SPI_InitStruct.SPI_DataSize = SPI_DataSize_8b;
-    SPI_InitStruct.SPI_Direction = SPI_Direction_2Lines_FullDuplex;
-    SPI_InitStruct.SPI_FirstBit = SPI_FirstBit_MSB;
-    SPI_InitStruct.SPI_Mode = SPI_Mode_Master;
-    SPI_InitStruct.SPI_NSS = SPI_NSS_Soft;
-		SPI_InitStruct.SPI_CRCPolynomial = 7;
-    SPI_Init(SPIx, &SPI_InitStruct); 
-    SPI_Cmd(SPIx, ENABLE);
-		
-		//SPI_I2S_ITConfig(SPIx, SPI_I2S_IT_RXNE, ENABLE);
-		//SPI_I2S_ITConfig(SPIx, SPI_I2S_IT_TXE, ENABLE);
-    
-		// Step 2: Initialize GPIO
-    RCC_APB2PeriphClockCmd(SPI_GPIO_RCC, ENABLE);
-    // GPIO pins for MOSI, MISO, and SCK
-    GPIO_InitStruct.GPIO_Pin = SPI_PIN_MOSI | SPI_PIN_MISO | SPI_PIN_SCK;
-    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF_PP;
-    GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(SPI_GPIO, &GPIO_InitStruct);
-    // GPIO pin for SS
-    GPIO_InitStruct.GPIO_Pin = SPI_PIN_SS;
-    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(SPI_GPIO, &GPIO_InitStruct);
-
-    // Disable SPI slave device
-    SPIx_DisableSlave();
+	}
+  
 }
-
-
-void SPIx_EnableSlave()
+void SysTick_Handler(void)
 {
-    // Set slave SS pin low
-    SPI_GPIO->BRR = SPI_PIN_SS;
+	myTicks++;
 }
 
-void SPIx_DisableSlave()
+void delayMs(uint16_t ms)
 {
-    // Set slave SS pin high
-    SPI_GPIO->BSRR = SPI_PIN_SS;
+	myTicks = 0;
+	while(myTicks<ms);
+}
+void CS_Enable (void)
+{
+	GPIOA->BSRR |= (1<<4)<<16;
 }
 
+void CS_Disable (void)
+{
+	GPIOA->BSRR |= (1<<4);
+}
 
