@@ -77,9 +77,9 @@ void Ports_Clocks()
 
 void Timers_Init()
 {
-	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;   // TIMER 4 ENABLE
+	RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;          // TIMER 4 ENABLE
 	TIM4->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E; // CHANNEL 1 & CHANNEL 2 -> OUTPUT
-	TIM4->CR1 |= TIM_CR1_ARPE;   // ENABLE ARPE | ARPE -> AUTO PRE-LOAD ENABLE
+	TIM4->CR1 |= TIM_CR1_ARPE;                   // ENABLE ARPE | ARPE -> AUTO PRE-LOAD ENABLE
 
 	TIM4->CCMR1 |= TIM_CCMR1_OC1PE;   // CHANNEL 1 PRELOAD ENABLE
 	TIM4->CCMR1 |= TIM_CCMR1_OC2PE;   // CHANNEL 2 PRELOAD ENABLE
@@ -92,21 +92,21 @@ void Timers_Init()
 	TIM4->CCMR1 |= (TIM_CCMR1_OC2M_2) | (TIM_CCMR1_OC2M_1);
 	TIM4->CCMR1 &= ~(TIM_CCMR1_OC2M_0);
 
-	TIM4->PSC = 1; // PRESCALAR
+	TIM4->PSC = 1;     // PRESCALAR
 	TIM4->ARR = 4095;  // AUTO-RELOAD VALUE -> (2^16 - 1)  
-	TIM4->CCR1 = 0; // CAPTURE/COMPARE REGISTERS
+	TIM4->CCR1 = 0;    // CAPTURE/COMPARE REGISTERS
 	TIM4->CCR2 = 0;
 
 	TIM4->EGR |= TIM_EGR_UG;   // BEFORE STARTING TIMER -> INITIALIZE ALL REGISTERS
-	TIM4->CR1 |= TIM_CR1_CEN;   // COUNTER ENABLE
+	TIM4->CR1 |= TIM_CR1_CEN;  // COUNTER ENABLE
 }
 
 void ADC_Init()
 {
 	GPIOA->BSRR |= 1 << 4 | 1 << 5;
-	RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6;   //  PRESCLAR -> 72MHz/6
-	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;   // ADC1 CLOCK ENABLE
-	RCC->AHBENR |= RCC_AHBENR_DMA1EN;   // DMA1 CLOCK ENABLE
+	RCC->CFGR |= RCC_CFGR_ADCPRE_DIV6;   // PRESCLAR -> 72MHz/6
+	RCC->APB2ENR |= RCC_APB2ENR_ADC1EN;  // ADC1 CLOCK ENABLE
+	RCC->AHBENR |= RCC_AHBENR_DMA1EN;    // DMA1 CLOCK ENABLE
 
 	// SAMPLING RATES FOR CHANNEL 1 & CHANNEL 2
 	ADC1->SMPR2 |= ADC_SMPR2_SMP1_2 | ADC_SMPR2_SMP1_1 | ADC_SMPR2_SMP1_0;   
@@ -118,7 +118,7 @@ void ADC_Init()
 	ADC1->SQR3 |= ADC_SQR3_SQ2_1;
 	
 	ADC1->CR1 |= ADC_CR1_SCAN;   // SCAN MODE ENABLE
-	ADC1->CR2 |= ADC_CR2_DMA;   // DMA MODE ENABLE
+	ADC1->CR2 |= ADC_CR2_DMA;    // DMA MODE ENABLE
 
 	
 	// DMA CONFIGURATIONS
@@ -138,15 +138,17 @@ void ADC_Init()
 	ADC1->CR2 |= ADC_CR2_CONT;   // ADC CONTINUOS MODE
 		
 	ADC1->CR2 |= ADC_CR2_ADON; // TURN ADC ON AGAIN | GIVEN IN REF MANUAL
-	ADC1->CR2 |= ADC_CR2_CAL; // RUN CALIBRATION
+	ADC1->CR2 |= ADC_CR2_CAL;  // RUN CALIBRATION
 	
 }
 
+// MAP VALUES 
 int map(float k, float l, float h, float L, float H)
 {
 	return ((k - l) / (h - l)) * (H - L) + L;
 }
 
+// ADC 2 CHANNEL READ
 int ADC_2ch_read(int k)
 {
 	int Joyval = 0;
@@ -192,8 +194,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BRR |= 1 << 4;
 		GPIOA->BRR |= 1 << 5;
-		TIM4->CCR1 = 0;  //Left SPEED
-	 TIM4->CCR2 = 0;   //Right SPEED
+		TIM4->CCR1 = 0;   // LEFT SPEED
+	  TIM4->CCR2 = 0;   // RIGHT SPEED
 	}		
 	
   
@@ -202,8 +204,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BSRR |= 1 << 4;
 		GPIOA->BSRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(y) ;  //Left SPEED
-	  TIM4->CCR2 = (uint32_t) abs(y);   //Right SPEED
+		TIM4->CCR1 = (uint32_t) abs(y) ;  // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(y);   // RIGHT SPEED
 		
 	}	
 	
@@ -212,8 +214,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BRR |= 1 << 4;
 		GPIOA->BRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) (abs(y));  //Left SPEED
-	  TIM4->CCR2 = (uint32_t)  abs(y);   //Right SPEED
+		TIM4->CCR1 = (uint32_t) (abs(y));  // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t)  abs(y);   // RIGHT SPEED
 	}	
 	
 	// SPOT LEFT
@@ -221,8 +223,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BRR |= 1 << 4;
 		GPIOA->BSRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(x);  //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(x);   //Right SPEED
+		TIM4->CCR1 = (uint32_t) abs(x);   // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(x);    // RIGHT SPEED
 	}		
 	
 	// SPOT RIGHT
@@ -230,8 +232,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BSRR |= 1 << 4;
 		GPIOA->BRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(x);		//Left SPEED
-	  TIM4->CCR2 = (uint32_t) abs(x);   //Right SPEED		
+		TIM4->CCR1 = (uint32_t) abs(x);		// LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(x);   // RIGHT SPEED		
 	}		
 		
 	// OCTET 1
@@ -239,8 +241,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BSRR |= 1 << 4;
 		GPIOA->BRR |= 1 << 5;
-	 TIM4->CCR1 = (uint32_t) abs(x);   //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(abs(x) - abs(y));   //Right SPEED
+	  TIM4->CCR1 = (uint32_t) abs(x);                 // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(abs(x) - abs(y));   // RIGHT SPEED
 	}		
 
 	// OCTET 2
@@ -248,16 +250,17 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BSRR |= 1 << 4;
 		GPIOA->BSRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(y);   //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(abs(x) - abs(y));   //Right SPEED
+		TIM4->CCR1 = (uint32_t) abs(y);                // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(abs(x) - abs(y));   // RIGHT SPEED
 	}		
 
 	// OCTET 3
-	else if(x < 0 && y > 0 && abs(x) < y){
-	GPIOA->BSRR |= 1 << 4;
+	else if(x < 0 && y > 0 && abs(x) < y)
+	{
+	  GPIOA->BSRR |= 1 << 4;
 		GPIOA->BSRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(abs(x) - abs(y));   //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(y);   //Right SPEED  
+		TIM4->CCR1 = (uint32_t) abs(abs(x) - abs(y));   // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(y);                  // RIGHT SPEED  
 	}
 
   // OCTET 4
@@ -265,17 +268,17 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BRR |= 1 << 4;
 		GPIOA->BSRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(abs(x) - abs(y));   //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(x);   //Right SPEED
-	}	
+		TIM4->CCR1 = (uint32_t) abs(abs(x) - abs(y));   // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(x);                  // RIGHT SPEED
+	}	 
 
   // OCTET 5	
 	else if(x < 0 && y < 0 && abs(x) > abs(y))
 	{
 		GPIOA->BRR |= 1 << 4;
 		GPIOA->BSRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(x);   //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(abs(x) - abs(y));   //Right SPEED
+		TIM4->CCR1 = (uint32_t) abs(x);                // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(abs(x) - abs(y));   // RIGHT SPEED
 	}
 	
 	// OCTET 6
@@ -283,8 +286,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BRR |= 1 << 4;
 		GPIOA->BRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(y);   //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(abs(x) - abs(y));   //Right SPEED
+		TIM4->CCR1 = (uint32_t) abs(y);                // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(abs(x) - abs(y));   // RIGHT SPEED
 	}
 	
 	// OCTET 7
@@ -292,8 +295,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BRR |= 1 << 4;
 		GPIOA->BRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(abs(x) - abs(y));   //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(y);   //Right SPEED
+		TIM4->CCR1 = (uint32_t) abs(abs(x) - abs(y));   // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(y);                  // RIGHT SPEED
 	}
 
 	// OCTET 8
@@ -301,7 +304,8 @@ void Motor_Code(int x, int y)
 	{
 		GPIOA->BSRR |= 1 << 4;
 		GPIOA->BRR |= 1 << 5;
-		TIM4->CCR1 = (uint32_t) abs(abs(x) - abs(y));   //Left SPEED
-	 TIM4->CCR2 = (uint32_t) abs(x);   //Right SPEED
+		TIM4->CCR1 = (uint32_t) abs(abs(x) - abs(y));   // LEFT SPEED
+	  TIM4->CCR2 = (uint32_t) abs(x);                  // RIGHT SPEED
 	}
 }	
+
