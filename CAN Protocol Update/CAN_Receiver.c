@@ -209,6 +209,7 @@ static void MX_CAN_Init(void)
   /* USER CODE BEGIN CAN_Init 1 */
 
   /* USER CODE END CAN_Init 1 */
+  __HAL_RCC_CAN1_CLK_ENABLE();
   hcan.Instance = CAN1;
   hcan.Init.Prescaler = 8;
   hcan.Init.Mode = CAN_MODE_NORMAL;
